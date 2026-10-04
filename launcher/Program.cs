@@ -18,6 +18,9 @@ static class Program
     [STAThread]
     static int Main(string[] args)
     {
+        int rootAt = Array.IndexOf(args, "--root");
+        if (rootAt >= 0 && rootAt + 1 < args.Length)
+            Paths.Root = System.IO.Path.GetFullPath(args[rootAt + 1]).TrimEnd('\\');
         if (args.Length > 0 && args[0] == "--test") { AttachConsole(-1); return Tests.Run(); }
         if (args.Length > 0)
         {
