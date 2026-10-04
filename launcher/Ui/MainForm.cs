@@ -36,7 +36,7 @@ partial class MainForm : Form
         Controls.Add(new Label { Text = "LIBRARY", ForeColor = Ui.Sub, Font = Ui.Font(8, FontStyle.Bold), AutoSize = true, Location = new Point(18, 22) });
         count.ForeColor = Ui.Sub; count.Font = Ui.Font(8); count.AutoSize = true; count.Location = new Point(LibW - 90, 22);
         Controls.Add(count);
-        list.Location = new Point(14, 48); list.Size = new Size(LibW - 20, ClientSize.Height - 140);
+        list.Location = new Point(14, 48); list.Size = new Size(LibW - 20, ClientSize.Height - 150);
         list.AutoScroll = true; list.FlowDirection = FlowDirection.TopDown; list.WrapContents = false; list.BackColor = Ui.Bg;
         Controls.Add(list);
         AddLibraryActions(); // Browse / Add / Create (MainForm.Library.cs)

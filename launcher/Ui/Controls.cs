@@ -53,7 +53,7 @@ class Card : Control
 {
     public readonly Manifest M;
     public readonly Image Cover; // cover.png in the mashup folder, or null (a gradient with initials)
-    public string Badge = ""; // e.g. "UPDATE", shown top-right
+
     public bool Selected, On;
     public Card(Manifest m) { M = m; Cover = Ui.LoadCover(m); SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true); Size = new Size(268, 96); Cursor = Cursors.Hand; BackColor = Ui.Bg; }
     protected override void OnMouseEnter(EventArgs e) { hover = true; Invalidate(); }
