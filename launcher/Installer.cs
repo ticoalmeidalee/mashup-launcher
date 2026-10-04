@@ -19,14 +19,16 @@ class InstallRecord
     string file;
 
     public static string FileFor(string mashupId) => Path.Combine(Paths.Data, mashupId, "installed.json");
-    public static bool Exists(string mashupId) => File.Exists(FileFor(mashupId));
+    public static bool Exists(string mashupId) => File.Exists(FileFor(mashupId)) || File.Exists(FileFor(mashupId) + ".bak");
 
     public static InstallRecord Load(string mashupId)
     {
         var r = new InstallRecord { file = FileFor(mashupId) };
-        if (!File.Exists(r.file))
+        if (!File.Exists(r.file) && !File.Exists(r.file + ".bak"))
             return r;
-        object o = Json.Parse(File.ReadAllText(r.file));
+        // a crash or power cut can leave the file empty or garbled: the previous version (.bak) is used then
+        object o = SafeFile.ReadWithFallback(r.file, text => Json.Parse(text) as IDictionary<string, object>)
+            ?? throw new InvalidDataException("The install record " + r.file + " is unreadable. Restore it from " + r.file + ".bak or remove the mashup's files by hand.");
         r.Complete = Json.Bool(o, "complete");
         r.GameDir = Json.Str(o, "gameDir");
         r.Added = Strings(Json.Arr(o, "added"));
@@ -47,7 +49,7 @@ class InstallRecord
         }));
     }
 
-    public void Delete() { if (File.Exists(file)) File.Delete(file); }
+    public void Delete() => SafeFile.Delete(file);
 }
 
 static class Installer

@@ -145,7 +145,21 @@ partial class MainForm : Form
 
     static void Dot(Label l, string name, string state, Color c) { l.Text = "●  " + name + ":  " + state; l.ForeColor = c; }
 
+    string lastTickError;
+
+    /// <summary>The once-a-second refresh: an error (unreadable record, Steam files mid-update) is logged once, never thrown.</summary>
     async Task Tick()
+    {
+        try { await TickCore(); lastTickError = null; }
+        catch (Exception ex)
+        {
+            if (ex.Message == lastTickError) return;
+            lastTickError = ex.Message;
+            eng?.Log("Problem: " + ex.Message);
+        }
+    }
+
+    async Task TickCore()
     {
         for (int k = 0; k < cards.Count; ++k)
         {

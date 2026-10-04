@@ -37,6 +37,32 @@ static partial class Tests
         }));
     }
 
+    static void RecordDurabilityTests()
+    {
+        Case("empty_record_falls_back_to_previous", () => WithTempRoot(() =>
+        {
+            string game = ChosenGame();
+            string before = Snapshot(game);
+            var e = new Engine(CopyOnlyMashup());
+            e.TurnOn(Quiet, new[] { e });
+            File.WriteAllText(InstallRecord.FileFor("t"), ""); // what a power cut can leave behind
+            bool sawOn = e.State() == FileState.On;
+            e.TurnOff(Quiet);
+            Check(sawOn && Snapshot(game) == before, "empty_record_falls_back_to_previous");
+        }));
+
+        Case("garbled_record_falls_back_to_previous", () => WithTempRoot(() =>
+        {
+            string game = ChosenGame();
+            string before = Snapshot(game);
+            var e = new Engine(CopyOnlyMashup());
+            e.TurnOn(Quiet, new[] { e });
+            File.WriteAllBytes(InstallRecord.FileFor("t"), new byte[64]); // NULs
+            e.TurnOff(Quiet);
+            Check(Snapshot(game) == before, "garbled_record_falls_back_to_previous");
+        }));
+    }
+
     /// <summary>Writes the choice file directly, the way a folder change outside the launcher's checks would.</summary>
     static void GameLocatorForceChoose(string id, string dir) =>
         File.WriteAllText(Path.Combine(Paths.Data, id, "game-folder.txt"), dir);

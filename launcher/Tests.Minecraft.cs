@@ -71,7 +71,8 @@ static partial class Tests
             var m = MinecraftManifest();
             MinecraftProfile.Install(m, Encoding.UTF8.GetBytes("mod jar"), dot, FakeNet(Sha512(FakeFabricApiJar)));
             MinecraftProfile.Remove(m, dot);
-            Check(File.ReadAllText(file) == before, "profile_removal_restores_exact_bytes");
+            bool noLeftovers = Directory.GetFiles(dot).Select(Path.GetFileName).SequenceEqual(new[] { "launcher_profiles.json" });
+            Check(File.ReadAllText(file) == before && noLeftovers, "profile_removal_restores_exact_bytes (no files left in .minecraft: " + noLeftovers + ")");
         }));
 
         Case("profile_removal_keeps_later_changes", () => WithTempRoot(() =>

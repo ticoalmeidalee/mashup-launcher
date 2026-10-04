@@ -84,7 +84,7 @@ static class MinecraftProfile
                 // nothing else changed since Install: put the original file back byte for byte (its own formatting);
                 // otherwise (a profile added, the launcher's own updates) keep those and only drop ours
                 bool untouched = File.Exists(backup) && Json.Write(root) == Json.Write(Json.Parse(File.ReadAllText(backup)));
-                if (untouched) SafeFile.WriteAllText(profiles, File.ReadAllText(backup));
+                if (untouched) SafeFile.WriteAllText(profiles, File.ReadAllText(backup), fallback: false);
                 else WriteJson(profiles, root);
             }
         }
@@ -131,5 +131,5 @@ static class MinecraftProfile
 
     static string Sha512(byte[] b) { using (var s = SHA512.Create()) return string.Concat(s.ComputeHash(b).Select(x => x.ToString("x2"))); }
 
-    static void WriteJson(string path, object value) => SafeFile.WriteAllText(path, Json.Write(value));
+    static void WriteJson(string path, object value) => SafeFile.WriteAllText(path, Json.Write(value), fallback: false);
 }
