@@ -75,11 +75,18 @@ static class MinecraftProfile
     {
         dotMinecraft = dotMinecraft ?? DotMinecraft();
         string profiles = Path.Combine(dotMinecraft, "launcher_profiles.json");
+        string backup = Path.Combine(Paths.Backups, m.Id, "launcher_profiles.json");
         if (File.Exists(profiles))
         {
             var root = (IDictionary<string, object>)Json.Parse(File.ReadAllText(profiles));
             if (root.TryGetValue("profiles", out object p) && p is IDictionary<string, object> list && list.Remove(ProfileKey(m)))
-                WriteJson(profiles, root);
+            {
+                // nothing else changed since Install: put the original file back byte for byte (its own formatting);
+                // otherwise (a profile added, the launcher's own updates) keep those and only drop ours
+                bool untouched = File.Exists(backup) && Json.Write(root) == Json.Write(Json.Parse(File.ReadAllText(backup)));
+                if (untouched) SafeFile.WriteAllText(profiles, File.ReadAllText(backup));
+                else WriteJson(profiles, root);
+            }
         }
         string rec = RecordFile(m);
         if (File.Exists(rec))
@@ -93,7 +100,6 @@ static class MinecraftProfile
             }
             File.Delete(rec);
         }
-        string backup = Path.Combine(Paths.Backups, m.Id, "launcher_profiles.json");
         if (File.Exists(backup)) File.Delete(backup);
     }
 

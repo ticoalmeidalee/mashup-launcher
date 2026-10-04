@@ -8,7 +8,7 @@ static class Program
     [DllImport("kernel32.dll")] static extern bool AttachConsole(int pid);
 
     /// <summary>
-    /// No arguments: the library window. Headless (prints to the console): --list, --on/--off/--status [id],
+    /// No arguments: the library window. Headless (prints to the console): --list, --add package.zip, --on/--off/--status [id],
     /// --choose id folder, --test. --root folder overrides where the launcher keeps its data.
     /// </summary>
     [STAThread]
@@ -24,6 +24,11 @@ static class Program
         if (args.Length > 0)
         {
             AttachConsole(-1); // print into the console that started us
+            if (args[0] == "--add" && args.Length > 1)
+            {
+                try { var added = Library.InstallLocalZip(args[1]); Console.WriteLine("added " + added.Id + " " + added.Version + " (local: not reviewed)"); return 0; }
+                catch (Exception ex) { Console.WriteLine("ERROR: " + ex.Message); return 1; }
+            }
             var engines = Library.Local().Select(m => new Engine(m)).ToList();
             foreach (string p in Library.Problems) Console.WriteLine("skipped " + p);
             if (args[0] == "--list")

@@ -1,0 +1,63 @@
+name: build
+
+on:
+  push:
+    branches: [main, "build/**"]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Find the C# compiler (Roslyn from Visual Studio)
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          "CSC=$vs\MSBuild\Current\Bin\Roslyn\csc.exe" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Launcher build and self-tests
+        shell: cmd
+        run: test.bat
+
+      - name: GTA plugin (ScriptHookV + ReShade add-on)
+        shell: pwsh
+        run: |
+          ./mashups/gta-minecraft/gta/fetch_deps.ps1
+          cmd /c mashups\gta-minecraft\gta\build.bat
+          if (-not (Test-Path mashups/gta-minecraft/gta/build/MCPassthrough.asi)) { throw "plugin build failed" }
+
+      - name: Minecraft mod (Fabric)
+        shell: bash
+        working-directory: mashups/gta-minecraft/mc
+        run: ./gradlew build --no-daemon
+
+      - name: Packages
+        shell: pwsh
+        run: |
+          ./mashups/gta-minecraft/package.ps1
+          ./tools/package-launcher.ps1 -Version "${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: |
+            dist/*.zip
+            dist/*.sha256
+
+      - name: Release (tags only)
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" (Get-ChildItem dist/*.zip, dist/*.sha256).FullName --title "${{ github.ref_name }}" --generate-notes

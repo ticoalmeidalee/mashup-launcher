@@ -1,0 +1,66 @@
+{
+  "format": 1,
+  "id": "gta-minecraft",
+  "name": "GTA V x Minecraft",
+  "version": "1.0.0",
+  "tagline": "Real Minecraft inside GTA V story mode",
+  "description": "Build, fight and fly with Minecraft in Los Santos: Minecraft's world is drawn into GTA's frame, GTA's guns, cars, police and weather react to it.",
+  "hint": "Pick Story Mode yourself in GTA. Never go online while ON.",
+  "authors": ["ticoalmeidalee", "rehan-remade (original passthrough example)"],
+  "license": "MIT",
+  "accent": [61, 220, 132],
+  "accent2": [233, 98, 48],
+  "host": {
+    "name": "GTA V",
+    "steamAppId": 271590,
+    "exe": "GTA5.exe",
+    "process": "GTA5",
+    "stub": "PlayGTAV",
+    "launch": "steam://rungameid/271590",
+    "antiCheat": {
+      "offlineArgs": "-nobattleye -noBE",
+      "note": "Story mode only. BattlEye stays off (args.txt), which keeps GTA Online locked out; ScriptHookV also refuses to run online. Needs GTA V Legacy (GTA5.exe), not Enhanced."
+    }
+  },
+  "guest": {
+    "name": "Minecraft",
+    "kind": "minecraft-fabric",
+    "minecraft": "26.3",
+    "fabricLoader": "0.19.5",
+    "fabricApi": "0.161.0+26.3",
+    "linkPort": 25599
+  },
+  "runtimeFiles": ["ScriptHookV.log", "asiloader.log", "ReShade.log"],
+  "install": [
+    {
+      "kind": "download",
+      "url": "https://www.dev-c.com/gtav/scripthookv/",
+      "page": true,
+      "pattern": "/files/ScriptHookV_[0-9][0-9._]*\\.zip",
+      "extract": { "bin/ScriptHookV.dll": "ScriptHookV.dll", "bin/dinput8.dll": "dinput8.dll" },
+      "to": "game"
+    },
+    {
+      "kind": "download",
+      "url": "https://reshade.me/downloads/ReShade_Setup_6.8.0_Addon.exe",
+      "extract": { "ReShade64.dll": "ReShade64.asi" },
+      "to": "game"
+    },
+    {
+      "kind": "download",
+      "url": "https://raw.githubusercontent.com/crosire/reshade-shaders/fd0022170615ce0d8162d219bff07232fa6dd84f/Shaders/ReShade.fxh",
+      "sha256": "6dabfbbaf968c3871905d2ea17f96572ff7b1cec01310b5d0e5252b66b30174f",
+      "save": "reshade-shaders/Shaders/ReShade.fxh",
+      "to": "game"
+    },
+    {
+      "kind": "download",
+      "url": "https://raw.githubusercontent.com/crosire/reshade-shaders/fd0022170615ce0d8162d219bff07232fa6dd84f/Shaders/ReShadeUI.fxh",
+      "sha256": "78adf672df47460297eb9fe6dd238d2aafa24510b52b84feb1a745dff70eb901",
+      "save": "reshade-shaders/Shaders/ReShadeUI.fxh",
+      "to": "game"
+    },
+    { "kind": "copy", "from": "payload/game", "to": "game" },
+    { "kind": "minecraft-profile", "jar": "payload/minecraft/gta-minecraft.jar" }
+  ]
+}

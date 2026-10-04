@@ -62,6 +62,31 @@ static partial class Tests
             Check(added && removed, "profile_added_and_removed (added=" + added + " removed=" + removed + ")");
         }));
 
+        Case("profile_removal_restores_exact_bytes", () => WithTempRoot(() =>
+        {
+            string dot = FakeDotMinecraft();
+            string file = Path.Combine(dot, "launcher_profiles.json");
+            File.WriteAllText(file, "{\n  \"profiles\" : {\n    \"mine\" : { \"name\" : \"My worlds\", \"type\" : \"custom\" }\n  },\n  \"version\" : 3\n}\n"); // the launcher's own formatting
+            string before = File.ReadAllText(file);
+            var m = MinecraftManifest();
+            MinecraftProfile.Install(m, Encoding.UTF8.GetBytes("mod jar"), dot, FakeNet(Sha512(FakeFabricApiJar)));
+            MinecraftProfile.Remove(m, dot);
+            Check(File.ReadAllText(file) == before, "profile_removal_restores_exact_bytes");
+        }));
+
+        Case("profile_removal_keeps_later_changes", () => WithTempRoot(() =>
+        {
+            string dot = FakeDotMinecraft();
+            var m = MinecraftManifest();
+            MinecraftProfile.Install(m, Encoding.UTF8.GetBytes("mod jar"), dot, FakeNet(Sha512(FakeFabricApiJar)));
+            // the player adds a profile while the mashup is ON: OFF must keep it
+            string file = Path.Combine(dot, "launcher_profiles.json");
+            File.WriteAllText(file, File.ReadAllText(file).Replace("\"profiles\":{", "\"profiles\":{\"new\":{\"name\":\"Added later\"},"));
+            MinecraftProfile.Remove(m, dot);
+            var after = Profiles(dot);
+            Check(after.ContainsKey("new") && after.ContainsKey("mine") && !after.ContainsKey("mashup-t"), "profile_removal_keeps_later_changes");
+        }));
+
         Case("existing_version_json_kept", () => WithTempRoot(() =>
         {
             string dot = FakeDotMinecraft();

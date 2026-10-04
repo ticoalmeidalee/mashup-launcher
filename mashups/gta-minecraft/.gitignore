@@ -1,0 +1,12 @@
+mc/build/
+mc/.gradle/
+mc/run/
+gta/build/
+gta/third_party/
+gta/tests/*.exe
+gta/tests/*.obj
+gta/tests/dxgi.dll
+gta/tests/ReShade*.ini
+gta/tests/reshade-shaders/
+__pycache__/
+graphify-out/
