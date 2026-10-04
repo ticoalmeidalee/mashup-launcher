@@ -6,6 +6,12 @@ using System.IO.Compression;
 using System.Linq;
 using System.Text;
 
+/// <summary>Installing would replace a mashup the user has from another source: the UI asks, then retries with replace.</summary>
+class ReplaceNeedsConfirmation : Exception
+{
+    public ReplaceNeedsConfirmation(string existing) : base("This replaces " + existing + " in your library.") { }
+}
+
 /// <summary>One mashup in the reviewed public index (library/index.json in the repo): where its package is, and its pin.</summary>
 class IndexEntry
 {
@@ -30,21 +36,21 @@ static partial class Library
                 Tagline = Json.Str(o, "tagline", ""), Url = Json.Str(o, "url", ""), Sha256 = Json.Str(o, "sha256", ""),
                 Authors = (Json.Arr(o, "authors") ?? new object[0]).Cast<object>().Select(a => a.ToString()).ToArray(),
             };
-            if (e.Id.Length > 0 && e.Sha256.Length == 64 && (e.Url.StartsWith("https://") || e.Url.StartsWith("file://")))
+            if (e.Id.Length > 0 && e.Sha256.Length == 64 && Downloads.Allowed(e.Url))
                 list.Add(e);
         }
         return list;
     }
 
     /// <summary>Downloads a public mashup, checks its pin, and installs it as reviewed.</summary>
-    public static Manifest InstallPackage(IndexEntry e) =>
-        InstallZip(Downloads.Verified(e.Url, e.Sha256), e.Id, reviewed: true, from: e.Url);
+    public static Manifest InstallPackage(IndexEntry e, bool replace = false) =>
+        InstallZip(Downloads.Verified(e.Url, e.Sha256), e.Id, reviewed: true, from: e.Url, replace: replace);
 
     /// <summary>Installs a mashup zip from this PC: it is marked not reviewed (the trust screen says so).</summary>
-    public static Manifest InstallLocalZip(string path) =>
-        InstallZip(File.ReadAllBytes(path), null, reviewed: false, from: Path.GetFullPath(path));
+    public static Manifest InstallLocalZip(string path, bool replace = false) =>
+        InstallZip(File.ReadAllBytes(path), null, reviewed: false, from: Path.GetFullPath(path), replace: replace);
 
-    static Manifest InstallZip(byte[] zip, string expectedId, bool reviewed, string from)
+    static Manifest InstallZip(byte[] zip, string expectedId, bool reviewed, string from, bool replace)
     {
         string incoming = Path.Combine(Paths.Mashups, ".incoming", Guid.NewGuid().ToString("N").Substring(0, 8));
         Directory.CreateDirectory(incoming);
@@ -78,6 +84,11 @@ static partial class Library
                 try { old = Manifest.Load(dest); } catch (ManifestException) { }
                 if (old != null && new Engine(old).State() != FileState.Off)
                     throw new InvalidOperationException(old.Name + " is ON. Turn it OFF before updating it.");
+                // only a reviewed package updating a reviewed install replaces silently; anything else (your own draft or
+                // zip, or a local zip over a reviewed copy) asks first
+                bool oldReviewed = old != null && new Engine(old).Reviewed;
+                if (!replace && !(reviewed && oldReviewed))
+                    throw new ReplaceNeedsConfirmation((old?.Name ?? m.Id) + (oldReviewed ? " (a reviewed public mashup)" : " (your own or a local copy)"));
                 Directory.Delete(dest, true);
             }
             File.WriteAllText(Path.Combine(root, "source.json"), Json.Write(new Dictionary<string, object>

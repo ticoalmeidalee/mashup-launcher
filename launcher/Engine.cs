@@ -13,7 +13,9 @@ class InstallPlan
 {
     public string GameDir;
     public List<string> Files = new List<string>();                              // game-folder paths it adds or replaces
-    public List<(string what, string host)> Downloads = new List<(string, string)>();
+    public List<(string what, string host, bool pinned)> Downloads = new List<(string, string, bool)>();
+    public List<string> RuntimeFiles = new List<string>();                       // logs the mod writes while running: OFF deletes them
+    public string Launch;                                                         // what ON starts, or null
     public bool MinecraftProfile;
     public bool AntiCheatFound;
     public string AntiCheatNote, OfflineArgs;
@@ -96,23 +98,25 @@ class Engine
     public InstallPlan Plan()
     {
         string game = GameDir;
-        var p = new InstallPlan { GameDir = game, AntiCheatFound = AntiCheatPresent(game), AntiCheatNote = M.Host.AntiCheatNote, OfflineArgs = M.Host.OfflineArgs, Reviewed = Reviewed };
+        var p = new InstallPlan { GameDir = game, AntiCheatFound = AntiCheatPresent(game), AntiCheatNote = M.Host.AntiCheatNote, OfflineArgs = M.Host.OfflineArgs, Reviewed = Reviewed,
+            RuntimeFiles = M.RuntimeFiles.ToList(), Launch = LaunchTarget() };
         foreach (var s in M.Install)
         {
             if (s.Kind == "copy")
                 p.Files.AddRange(CopyFiles(s).Select(f => f.rel));
             else if (s.Kind == "download")
             {
-                p.Downloads.Add((s.Page ? "latest file from " + s.Url : s.Url, new Uri(s.Url).Host));
+                p.Downloads.Add((s.Page ? "latest file from " + s.Url : s.Url, new Uri(s.Url).Host, !string.IsNullOrEmpty(s.Sha256)));
                 if (s.Extract != null) p.Files.AddRange(s.Extract.Values);
                 else if (s.Save != null) p.Files.Add(s.Save);
                 else if (!s.Page) p.Files.Add(Path.GetFileName(new Uri(s.Url).LocalPath));
+                else p.Files.Add("(a file named by " + new Uri(s.Url).Host + ")");
             }
             else if (s.Kind == "minecraft-profile")
             {
                 p.MinecraftProfile = true;
-                p.Downloads.Add(("Fabric loader " + M.Guest?.FabricLoader, "meta.fabricmc.net"));
-                p.Downloads.Add(("Fabric API " + M.Guest?.FabricApi, "modrinth.com"));
+                p.Downloads.Add(("Fabric loader " + M.Guest?.FabricLoader, "meta.fabricmc.net", false));
+                p.Downloads.Add(("Fabric API " + M.Guest?.FabricApi + " (checked against Modrinth's SHA-512)", "modrinth.com", true));
             }
         }
         return p;
@@ -202,6 +206,19 @@ class Engine
         return condition();
     }
 
+    /// <summary>What ON starts: the game's steam:// id (validated by Manifest), or an .exe resolved inside the game folder.</summary>
+    ProcessStartInfo LaunchInfo()
+    {
+        if (M.Host.Launch.StartsWith("steam://"))
+            return new ProcessStartInfo(M.Host.Launch) { UseShellExecute = true };
+        string game = RequireGame();
+        return new ProcessStartInfo(Installer.Inside(game, M.Host.Launch)) { WorkingDirectory = game, UseShellExecute = false };
+    }
+
+    /// <summary>The launch target as the trust screen shows it.</summary>
+    public string LaunchTarget() =>
+        M.Host.Launch.Length == 0 ? null : M.Host.Launch.StartsWith("steam://") ? M.Host.Launch + " (through Steam)" : M.Host.Launch + " in the game folder";
+
     // while the last host (or its launcher stub) is still exiting, Steam thinks the game runs and ignores a launch
     void StartHost()
     {
@@ -215,7 +232,7 @@ class Engine
         for (int attempt = 1; attempt <= 2; ++attempt)
         {
             L(attempt == 1 ? "Starting " + M.Host.Name + ". " + M.Hint : M.Host.Name + " didn't start, asking again...");
-            Process.Start(new ProcessStartInfo(M.Host.Launch) { UseShellExecute = true });
+            Process.Start(LaunchInfo());
             if (WaitFor(HostOrStubRunning, 90)) return;
         }
         throw new InvalidOperationException(M.Host.Name + " didn't start. Start it yourself; the mashup is installed.");

@@ -11,6 +11,7 @@ static partial class Tests
     public static int Run()
     {
         Console.WriteLine("Mashup Launcher self-tests");
+        Downloads.AllowFileUrls = true; // the tests serve their fixtures from temp files
         Check(Directory.Exists(Paths.Root), "root exists");
         Check(Paths.Mashups == Path.Combine(Paths.Root, "mashups") && Paths.Data == Path.Combine(Paths.Root, "data") && Paths.Backups == Path.Combine(Paths.Data, "backups"), "data folders are root/mashups, root/data, data/backups");
         ManifestTests();
@@ -24,6 +25,7 @@ static partial class Tests
         PackageFeatureTests();
         ReviewTests();
         RecordDurabilityTests();
+        LaunchAndSourceTests();
         foreach (var t in temps) try { Directory.Delete(t, true); } catch (Exception) { }
         Console.WriteLine(passed + "/" + (passed + failed) + " passed");
         return failed == 0 ? 0 : 1;

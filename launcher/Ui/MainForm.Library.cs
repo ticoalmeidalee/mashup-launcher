@@ -49,7 +49,15 @@ partial class MainForm
         using (var d = new OpenFileDialog { Title = "Add a mashup (.zip)", Filter = "Mashup package (*.zip)|*.zip" })
         {
             if (d.ShowDialog(this) != DialogResult.OK) return;
-            try { Reload(Library.InstallLocalZip(d.FileName).Id); }
+            try
+            {
+                try { Reload(Library.InstallLocalZip(d.FileName).Id); }
+                catch (ReplaceNeedsConfirmation ask)
+                {
+                    if (MessageBox.Show(this, ask.Message + "\n\nReplace it with this zip? (It will be marked not reviewed.)", "Mashup Launcher", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                        Reload(Library.InstallLocalZip(d.FileName, replace: true).Id);
+                }
+            }
             catch (Exception ex) { MessageBox.Show(this, ex.Message, "Mashup Launcher", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
         }
     }

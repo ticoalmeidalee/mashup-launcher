@@ -52,7 +52,14 @@ class BrowseDialog : Form
             b.Enabled = false; b.Text = "...";
             try
             {
-                var m = await Task.Run(() => Library.InstallPackage(e));
+                Manifest m;
+                try { m = await Task.Run(() => Library.InstallPackage(e)); }
+                catch (ReplaceNeedsConfirmation ask)
+                {
+                    if (MessageBox.Show(this, ask.Message + "\n\nReplace it with the reviewed public version?", "Public mashups", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    { b.Enabled = true; b.Text = have ? "Update" : "Install"; return; }
+                    m = await Task.Run(() => Library.InstallPackage(e, replace: true));
+                }
                 Installed = m.Id; b.Text = "Installed";
                 status.Text = m.Name + " installed. Close this window to see it in your library."; status.ForeColor = Ui.Green;
             }

@@ -12,8 +12,16 @@ static class Downloads
 {
     const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 MashupLauncher";
 
+    /// <summary>file:// URLs are for the self-tests only (Tests.Run turns this on); players' downloads are https.</summary>
+    public static bool AllowFileUrls;
+
+    public static bool Allowed(string url) =>
+        url != null && (url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || (AllowFileUrls && url.StartsWith("file://", StringComparison.OrdinalIgnoreCase)));
+
     public static byte[] Get(string url, string referer = null)
     {
+        if (!Allowed(url))
+            throw new InvalidOperationException("Only https:// downloads are allowed (" + url + ")");
         ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
         using (var wc = new WebClient())
         {

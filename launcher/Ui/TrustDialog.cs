@@ -39,14 +39,31 @@ class TrustDialog : Form
         if (plan.Downloads.Count > 0)
         {
             lines.Add("");
-            lines.Add("DOWNLOADS (from the official sites)");
-            lines.AddRange(plan.Downloads.Select(d => "   " + d.host + "   " + d.what));
+            lines.Add("DOWNLOADS");
+            foreach (var d in plan.Downloads)
+            {
+                lines.Add("   " + d.host + (d.pinned ? "   [pinned SHA-256]" : "   [not pinned]"));
+                lines.Add("      " + d.what);
+            }
+        }
+        if (plan.RuntimeFiles.Count > 0)
+        {
+            lines.Add("");
+            lines.Add("FILES THE MOD WRITES WHILE PLAYING (OFF deletes them unless they were there before)");
+            lines.AddRange(plan.RuntimeFiles.Select(f => "   " + f));
+        }
+        if (plan.Launch != null)
+        {
+            lines.Add("");
+            lines.Add("STARTS");
+            lines.Add("   " + plan.Launch);
         }
         if (plan.MinecraftProfile)
         {
             lines.Add("");
             lines.Add("MINECRAFT");
-            lines.Add("   Adds a \"" + m.Name + "\" profile to your Minecraft Launcher, with its own worlds and mods folder.");
+            lines.Add("   Adds a \"" + m.Name + "\" profile to your Minecraft Launcher (in %APPDATA%\\.minecraft), with its own");
+            lines.Add("   worlds and mods folder inside the launcher's data folder.");
             lines.Add("   You play it with your own account. OFF removes the profile.");
         }
         if (plan.AntiCheatFound)

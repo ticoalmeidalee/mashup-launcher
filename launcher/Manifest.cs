@@ -96,6 +96,15 @@ class Manifest
         if (m.Host.Exe.Length == 0)
             throw new ManifestException("host.exe is required: it is how the launcher recognises the game folder");
         SafeRelative(m.Host.Exe);
+        // how ON starts the game: the game's own Steam id, or an .exe inside the game folder; nothing else can be launched
+        if (m.Host.Launch.Length > 0)
+        {
+            var steam = Regex.Match(m.Host.Launch, @"^steam://rungameid/(\d+)$");
+            if (steam.Success ? int.Parse(steam.Groups[1].Value) != m.Host.SteamAppId
+                : m.Host.Launch.Contains(":") || !m.Host.Launch.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                throw new ManifestException("host.launch must be steam://rungameid/<host.steamAppId> or an .exe inside the game folder (got \"" + m.Host.Launch + "\")");
+            if (!steam.Success) m.Host.Launch = SafeRelative(m.Host.Launch);
+        }
 
         var guest = Json.Obj(root, "guest");
         if (guest != null)
@@ -140,7 +149,7 @@ class Manifest
             throw new ManifestException("A copy step needs \"from\"");
         if (s.Kind == "download")
         {
-            if (s.Url == null || !(s.Url.StartsWith("https://") || s.Url.StartsWith("file://")))
+            if (!Downloads.Allowed(s.Url))
                 throw new ManifestException("A download step needs an https:// url");
             if (s.Page && s.Pattern == null)
                 throw new ManifestException("A page download needs a \"pattern\" for the file link");
