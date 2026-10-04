@@ -36,7 +36,7 @@ static class Scaffold
         {
             ["format"] = Manifest.CurrentFormat, ["id"] = id, ["name"] = name.Trim(), ["version"] = "0.1.0",
             ["tagline"] = (guestName ?? "Something") + " inside " + hostName, ["description"] = "Draft: being built with universal-modder.",
-            ["authors"] = new[] { Environment.UserName }, ["host"] = host, ["install"] = new object[0],
+            ["authors"] = new string[0], ["host"] = host, ["install"] = new object[0], // authors: filled in by the author, not from Windows
         };
         if (guestDir != null)
             manifest["guest"] = new Dictionary<string, object> { ["name"] = guestName, ["kind"] = "process" };
@@ -51,6 +51,7 @@ static class Scaffold
 
     static string Prompt(string name, string id, string hostName, string hostDir, string hostExe, string guestName, string guestDir, string guestExe, string dir) =>
         "# Build the \"" + name + "\" mashup\n\n" +
+        "> This prompt holds folder paths from your PC: don't share this file. Delete it before you zip the mashup to share it.\n\n" +
         "Use universal-modder (" + ModderRepo + "): start with its `mod-any-game` skill, then `mashup-mods`.\n\n" +
         "- Host game: **" + hostName + "** at `" + hostDir + "` (`" + hostExe + "`)\n" +
         (guestDir != null ? "- Guest game: **" + guestName + "** at `" + guestDir + "` (`" + guestExe + "`)\n" : "- Guest: (decide: another game, or content ported into the host)\n") +
