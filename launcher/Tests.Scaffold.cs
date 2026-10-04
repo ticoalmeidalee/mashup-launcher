@@ -27,6 +27,18 @@ static partial class Tests
             Check(Path.GetFileName(a) == "same-name" && Path.GetFileName(b) == "same-name-2", "scaffold_ids_are_unique");
         }));
 
+        Case("draft_keeps_the_windows_username_out", () => WithTempRoot(() =>
+        {
+            string host = TempDir();
+            File.WriteAllText(Path.Combine(host, "Game.exe"), "");
+            string dir = Scaffold.Create("Shareable", host, "Game.exe", null, null);
+            var m = Manifest.Load(dir);
+            string json = File.ReadAllText(Path.Combine(dir, "mashup.json"));
+            string prompt = File.ReadAllText(Path.Combine(dir, "PROMPT.md"));
+            Check(m.Authors.Length == 0 && !json.Contains(Environment.UserName) && prompt.Contains("don't share this file"),
+                "draft_keeps_the_windows_username_out");
+        }));
+
         Case("draft_mashup_cannot_turn_on", () => WithTempRoot(() =>
         {
             string host = TempDir();
