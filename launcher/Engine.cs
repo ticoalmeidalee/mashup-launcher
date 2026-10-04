@@ -96,6 +96,7 @@ class Engine
             {
                 p.Downloads.Add((s.Page ? "latest file from " + s.Url : s.Url, new Uri(s.Url).Host));
                 if (s.Extract != null) p.Files.AddRange(s.Extract.Values);
+                else if (s.Save != null) p.Files.Add(s.Save);
                 else if (!s.Page) p.Files.Add(Path.GetFileName(new Uri(s.Url).LocalPath));
             }
             else if (s.Kind == "minecraft-profile")
@@ -123,6 +124,7 @@ class Engine
 
         try
         {
+            Installer.TrackRuntime(M.Id, game, M.RuntimeFiles);
             foreach (var s in M.Install)
                 RunStep(s, game, get);
             Installer.Finish(M.Id);
@@ -165,7 +167,7 @@ class Engine
                 if (get != null && !string.IsNullOrEmpty(s.Sha256) && !Downloads.Sha256(data).Equals(s.Sha256, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("Download does not match its pinned SHA-256");
                 var files = s.Extract != null ? Downloads.Extract(data, s.Extract)
-                    : new Dictionary<string, byte[]> { [Manifest.SafeRelative(Path.GetFileName(new Uri(url).LocalPath))] = data };
+                    : new Dictionary<string, byte[]> { [s.Save ?? Manifest.SafeRelative(Path.GetFileName(new Uri(url).LocalPath))] = data };
                 foreach (var f in files)
                 {
                     L("Adding " + f.Key);

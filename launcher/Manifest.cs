@@ -25,7 +25,7 @@ class GuestSpec
 
 class Step
 {
-    public string Kind, Url, From, To, Sha256, Pattern, Jar;
+    public string Kind, Url, From, To, Sha256, Pattern, Jar, Save;
     public bool Page;
     public Dictionary<string, string> Extract;
 }
@@ -47,6 +47,7 @@ class Manifest
     public HostSpec Host = new HostSpec();
     public GuestSpec Guest; // null: no guest game
     public List<Step> Install = new List<Step>();
+    public string[] RuntimeFiles = new string[0]; // files the mod writes in the game folder while running (logs): removed on OFF
 
     public static Manifest Load(string dir)
     {
@@ -108,6 +109,7 @@ class Manifest
                 LinkPort = Json.Int(guest, "linkPort"),
             };
 
+        m.RuntimeFiles = (Json.Arr(root, "runtimeFiles") ?? new object[0]).Cast<object>().Select(f => SafeRelative(f.ToString())).ToArray();
         foreach (object o in Json.Arr(root, "install") ?? new object[0])
             m.Install.Add(ParseStep(o));
         return m;
@@ -124,6 +126,7 @@ class Manifest
             Sha256 = Json.Str(o, "sha256"),
             Pattern = Json.Str(o, "pattern"),
             Jar = Json.Str(o, "jar"),
+            Save = Json.Str(o, "save"),
             Page = Json.Bool(o, "page"),
         };
         if (!Kinds.Contains(s.Kind))
@@ -132,6 +135,7 @@ class Manifest
             throw new ManifestException("Install steps can only target \"game\" (got \"" + s.To + "\")");
         if (s.From != null) SafeRelative(s.From);
         if (s.Jar != null) SafeRelative(s.Jar);
+        if (s.Save != null) s.Save = SafeRelative(s.Save);
         if (s.Kind == "copy" && s.From == null)
             throw new ManifestException("A copy step needs \"from\"");
         if (s.Kind == "download")

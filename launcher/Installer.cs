@@ -14,6 +14,7 @@ class InstallRecord
     public List<string> Added = new List<string>();    // files written into the game folder (relative)
     public List<string> Dirs = new List<string>();     // folders created for them, outermost first
     public List<string> BackedUp = new List<string>(); // originals copied to data\backups\<id> before being replaced
+    public List<string> Runtime = new List<string>();  // files the mod may write while running that weren't there at ON
     string file;
 
     public static string FileFor(string mashupId) => Path.Combine(Paths.Data, mashupId, "installed.json");
@@ -29,6 +30,7 @@ class InstallRecord
         r.Added = Strings(Json.Arr(o, "added"));
         r.Dirs = Strings(Json.Arr(o, "dirs"));
         r.BackedUp = Strings(Json.Arr(o, "backedUp"));
+        r.Runtime = Strings(Json.Arr(o, "runtime"));
         return r;
     }
 
@@ -39,7 +41,7 @@ class InstallRecord
         Directory.CreateDirectory(Path.GetDirectoryName(file));
         SafeFile.WriteAllText(file, Json.Write(new Dictionary<string, object>
         {
-            ["complete"] = Complete, ["added"] = Added, ["dirs"] = Dirs, ["backedUp"] = BackedUp,
+            ["complete"] = Complete, ["added"] = Added, ["dirs"] = Dirs, ["backedUp"] = BackedUp, ["runtime"] = Runtime,
         }));
     }
 
@@ -110,6 +112,15 @@ static class Installer
         }
     }
 
+    /// <summary>Records which of the mod's runtime files (logs) are absent now: RemoveAll deletes those, never pre-existing ones.</summary>
+    public static void TrackRuntime(string mashupId, string gameDir, IEnumerable<string> files)
+    {
+        var rec = InstallRecord.Load(mashupId);
+        foreach (string rel in files)
+            if (!File.Exists(Inside(gameDir, rel)) && !rec.Runtime.Contains(rel, StringComparer.OrdinalIgnoreCase)) rec.Runtime.Add(rel);
+        rec.Save();
+    }
+
     /// <summary>Marks the install complete: State reads On only after this.</summary>
     public static void Finish(string mashupId)
     {
@@ -127,6 +138,11 @@ static class Installer
             string full = Inside(gameDir, rel);
             if (File.Exists(full)) File.Delete(full);
             if (File.Exists(full + ".mashup-tmp")) File.Delete(full + ".mashup-tmp");
+        }
+        foreach (string rel in rec.Runtime)
+        {
+            string full = Inside(gameDir, rel);
+            if (File.Exists(full)) File.Delete(full);
         }
         foreach (string rel in rec.BackedUp)
         {
