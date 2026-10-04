@@ -111,6 +111,8 @@ class Engine
     public void TurnOn(Settings settings, IEnumerable<Engine> others, Func<string, byte[]> get = null)
     {
         string game = RequireGame();
+        if (M.Install.Count == 0)
+            throw new InvalidOperationException(M.Name + " is a draft: it has no install steps yet. Build it with universal-modder (see PROMPT.md in its folder).");
         if (AntiCheatPresent(game) && string.IsNullOrEmpty(M.Host.OfflineArgs))
             throw new InvalidOperationException(M.Host.Name + " uses anti-cheat, and " + M.Name + " doesn't say how it keeps the game offline. Refusing to install.");
         var busy = others.FirstOrDefault(o => o != this && o.State() != FileState.Off && string.Equals(o.GameDir, game, StringComparison.OrdinalIgnoreCase));

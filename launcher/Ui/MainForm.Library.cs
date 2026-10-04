@@ -4,10 +4,10 @@ using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
 
-/// <summary>The library column's actions: browse the public mashups, add a .zip, create your own (Task 9), open the folder.</summary>
+/// <summary>The library column's actions: browse the public mashups, add a .zip, create your own, open the folder.</summary>
 partial class MainForm
 {
-    protected Button browse, addZip;
+    Button browse, addZip;
 
     void AddLibraryActions()
     {
@@ -22,7 +22,16 @@ partial class MainForm
         };
         addZip = ActionButton("Add .zip", new Point(14, ClientSize.Height - 50), 120);
         addZip.Click += (o, e) => AddZip();
-        var openFolder = new LinkLabel { Text = "Open folder", AutoSize = true, Location = new Point(LibW - 86, ClientSize.Height - 44), LinkColor = Ui.Sub, ActiveLinkColor = Ui.Text };
+        var create = ActionButton("Create...", new Point(140, ClientSize.Height - 50), 80);
+        create.Click += (o, e) =>
+        {
+            using (var d = new CreateDialog())
+            {
+                d.ShowDialog(this);
+                if (d.Created != null) Reload(d.Created);
+            }
+        };
+        var openFolder = new LinkLabel { Text = "Folder", AutoSize = true, Location = new Point(LibW - 58, ClientSize.Height - 44), LinkColor = Ui.Sub, ActiveLinkColor = Ui.Text };
         openFolder.Click += (o, e) => { Directory.CreateDirectory(Paths.Mashups); Process.Start("explorer.exe", Paths.Mashups); };
         Controls.Add(openFolder);
     }

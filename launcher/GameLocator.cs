@@ -64,6 +64,23 @@ static class GameLocator
         return null;
     }
 
+    /// <summary>The Steam app id whose install folder is dir, or 0.</summary>
+    public static int SteamAppIdFor(string dir, string steamRoot = null)
+    {
+        if (string.IsNullOrEmpty(dir)) return 0;
+        string want = Path.GetFullPath(dir).TrimEnd('\\');
+        foreach (string lib in SteamLibraries(steamRoot))
+            foreach (string acf in Directory.GetFiles(Path.Combine(lib, "steamapps"), "appmanifest_*.acf"))
+            {
+                string text = File.ReadAllText(acf);
+                var inst = Regex.Match(text, "\"installdir\"\\s+\"([^\"]+)\"");
+                var app = Regex.Match(text, "\"appid\"\\s+\"(\\d+)\"");
+                if (inst.Success && app.Success && string.Equals(Path.Combine(lib, "steamapps", "common", inst.Groups[1].Value).TrimEnd('\\'), want, StringComparison.OrdinalIgnoreCase))
+                    return int.Parse(app.Groups[1].Value);
+            }
+        return 0;
+    }
+
     public static bool IsGameFolder(string dir, string exe) =>
         !string.IsNullOrEmpty(dir) && Directory.Exists(dir) && File.Exists(Path.Combine(dir, exe));
 
