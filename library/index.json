@@ -1,4 +1,14 @@
 {
   "format": 1,
-  "mashups": []
+  "mashups": [
+    {
+      "id": "gta-minecraft",
+      "name": "GTA V x Minecraft",
+      "version": "1.0.0",
+      "tagline": "Real Minecraft inside GTA V story mode",
+      "authors": ["ticoalmeidalee", "rehan-remade (original passthrough example)"],
+      "url": "https://github.com/ticoalmeidalee/mashup-launcher/releases/download/v1.0.0/gta-minecraft-1.0.0.zip",
+      "sha256": "f1ef7d8155a72306d8e9aa65a4cf3c1d91fafd626655008c04889f081d2497a3"
+    }
+  ]
 }
