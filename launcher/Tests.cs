@@ -22,6 +22,7 @@ static partial class Tests
         LibraryTests();
         ScaffoldTests();
         PackageFeatureTests();
+        ReviewTests();
         foreach (var t in temps) try { Directory.Delete(t, true); } catch (Exception) { }
         Console.WriteLine(passed + "/" + (passed + failed) + " passed");
         return failed == 0 ? 0 : 1;

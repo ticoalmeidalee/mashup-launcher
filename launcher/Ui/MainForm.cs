@@ -137,7 +137,7 @@ partial class MainForm : Form
         using (var d = new FolderBrowserDialog { Description = "Pick the folder " + eng.M.Host.Name + " is installed in (it contains " + eng.M.Host.Exe + ")", ShowNewFolderButton = false, SelectedPath = eng.GameDir ?? "" })
         {
             if (d.ShowDialog(this) != DialogResult.OK) return;
-            try { GameLocator.Choose(eng.M.Id, d.SelectedPath, eng.M.Host.Exe); eng.Log("Game folder: " + d.SelectedPath); }
+            try { eng.ChooseGameFolder(d.SelectedPath); eng.Log("Game folder: " + d.SelectedPath); }
             catch (InvalidOperationException ex) { MessageBox.Show(this, ex.Message, "Mashup Launcher", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
         }
         _ = Tick();

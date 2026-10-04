@@ -42,7 +42,7 @@ static class Program
             eng.Log = s => Console.WriteLine(s);
             try
             {
-                if (args[0] == "--choose" && args.Length > 2) GameLocator.Choose(eng.M.Id, args[2], eng.M.Host.Exe);
+                if (args[0] == "--choose" && args.Length > 2) eng.ChooseGameFolder(args[2]);
                 else if (args[0] == "--on") eng.TurnOn(new Settings(eng.M), engines);
                 else if (args[0] == "--off") eng.TurnOff(new Settings(eng.M));
                 Console.WriteLine("[" + eng.M.Id + "] state=" + eng.State() + " game=" + (eng.GameDir ?? "?") + " host=" + eng.HostRunning() + " link=" + eng.LinkUp());

@@ -32,7 +32,16 @@ class Engine
     public static bool AntiCheatPresent(string gameDir) =>
         gameDir != null && AntiCheatMarks.Any(n => File.Exists(Path.Combine(gameDir, n)) || Directory.Exists(Path.Combine(gameDir, n)));
 
-    public string GameDir => GameLocator.Resolve(M.Id, M.Host.Exe, M.Host.SteamAppId);
+    /// <summary>The folder an install wrote to while one exists (OFF must clean that one), else the chosen/Steam folder.</summary>
+    public string GameDir => Installer.RecordedGameDir(M.Id) ?? GameLocator.Resolve(M.Id, M.Host.Exe, M.Host.SteamAppId);
+
+    /// <summary>Picks the game folder; only while OFF, so ON and OFF always work on the same folder.</summary>
+    public void ChooseGameFolder(string dir)
+    {
+        if (State() != FileState.Off)
+            throw new InvalidOperationException("Turn " + M.Name + " OFF before changing the game folder.");
+        GameLocator.Choose(M.Id, dir, M.Host.Exe);
+    }
 
     public FileState State()
     {

@@ -11,6 +11,7 @@ using System.Linq;
 class InstallRecord
 {
     public bool Complete;
+    public string GameDir;                              // the folder ON wrote to: OFF works on this one, whatever is chosen later
     public List<string> Added = new List<string>();    // files written into the game folder (relative)
     public List<string> Dirs = new List<string>();     // folders created for them, outermost first
     public List<string> BackedUp = new List<string>(); // originals copied to data\backups\<id> before being replaced
@@ -27,6 +28,7 @@ class InstallRecord
             return r;
         object o = Json.Parse(File.ReadAllText(r.file));
         r.Complete = Json.Bool(o, "complete");
+        r.GameDir = Json.Str(o, "gameDir");
         r.Added = Strings(Json.Arr(o, "added"));
         r.Dirs = Strings(Json.Arr(o, "dirs"));
         r.BackedUp = Strings(Json.Arr(o, "backedUp"));
@@ -41,7 +43,7 @@ class InstallRecord
         Directory.CreateDirectory(Path.GetDirectoryName(file));
         SafeFile.WriteAllText(file, Json.Write(new Dictionary<string, object>
         {
-            ["complete"] = Complete, ["added"] = Added, ["dirs"] = Dirs, ["backedUp"] = BackedUp, ["runtime"] = Runtime,
+            ["complete"] = Complete, ["gameDir"] = GameDir, ["added"] = Added, ["dirs"] = Dirs, ["backedUp"] = BackedUp, ["runtime"] = Runtime,
         }));
     }
 
@@ -61,6 +63,21 @@ static class Installer
         return full;
     }
 
+    /// <summary>The record, tied to gameDir: the first write records the folder, and a write to any other folder is refused.</summary>
+    static InstallRecord Claim(string mashupId, string gameDir)
+    {
+        var rec = InstallRecord.Load(mashupId);
+        string dir = Path.GetFullPath(gameDir).TrimEnd('\\');
+        if (rec.GameDir == null) rec.GameDir = dir;
+        else if (!string.Equals(rec.GameDir, dir, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("This mashup is installed in " + rec.GameDir + ". Turn it OFF there first.");
+        return rec;
+    }
+
+    /// <summary>The game folder an install (finished or not) wrote to, or null when nothing is installed.</summary>
+    public static string RecordedGameDir(string mashupId) =>
+        InstallRecord.Exists(mashupId) ? InstallRecord.Load(mashupId).GameDir : null;
+
     static string BackupPath(string mashupId, string rel) => Path.Combine(Paths.Backups, mashupId, rel);
 
     /// <summary>
@@ -71,7 +88,7 @@ static class Installer
     {
         string rel = Manifest.SafeRelative(relTarget);
         string full = Inside(gameDir, rel);
-        var rec = InstallRecord.Load(mashupId);
+        var rec = Claim(mashupId, gameDir);
         rec.Complete = false;
 
         // folders it needs, outermost first, recorded before they exist
@@ -115,7 +132,7 @@ static class Installer
     /// <summary>Records which of the mod's runtime files (logs) are absent now: RemoveAll deletes those, never pre-existing ones.</summary>
     public static void TrackRuntime(string mashupId, string gameDir, IEnumerable<string> files)
     {
-        var rec = InstallRecord.Load(mashupId);
+        var rec = Claim(mashupId, gameDir);
         foreach (string rel in files)
             if (!File.Exists(Inside(gameDir, rel)) && !rec.Runtime.Contains(rel, StringComparer.OrdinalIgnoreCase)) rec.Runtime.Add(rel);
         rec.Save();
