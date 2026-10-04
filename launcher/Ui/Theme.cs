@@ -24,6 +24,15 @@ static class Ui
         p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
         p.CloseFigure(); return p;
     }
+    /// <summary>A copy of the mashup's cover.png (the file stays editable while the launcher runs), or null.</summary>
+    public static Image LoadCover(Manifest m)
+    {
+        string f = Path.Combine(m.Dir, "cover.png");
+        if (!File.Exists(f)) return null;
+        try { using (var img = Image.FromFile(f)) return new Bitmap(img); }
+        catch (Exception) { return null; }
+    }
+
     public static string Initials(string name) =>
         string.Concat(name.Split(new[] { ' ', 'x', 'X', '×' }, StringSplitOptions.RemoveEmptyEntries).Where(w => char.IsLetter(w[0])).Take(2).Select(w => char.ToUpper(w[0])));
 }

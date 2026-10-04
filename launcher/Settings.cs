@@ -1,31 +1,24 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
-using System.Net.NetworkInformation;
-using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 
+/// <summary>A mashup's per-user switches, in data\&lt;id&gt;\settings.ini (not in the mashup folder, which an update replaces).</summary>
 class Settings
 {
-    // key -> (label, default); labels name the mashup's games
-    public static (string key, string label, bool def)[] All(Mashup m) => new[] {
-        ("startGuest", "Start " + m.GuestName + " automatically", true),
-        ("startHost", "Start " + m.HostName + " automatically", true),
-        ("autoOff", "Turn OFF automatically when " + m.HostName + " closes", true),
-        ("closeGuest", "Close " + m.GuestName + " when turning OFF", true),
-    };
-    readonly Dictionary<string, bool> v = new Dictionary<string, bool>();
-    readonly string file;
+    public static (string key, string label, bool def)[] All(Manifest m) => new[] {
+        ("startGuest", m.Guest == null ? null : "Open " + m.Guest.Name + (m.Guest.Kind == "minecraft-fabric" ? " Launcher" : "") + " when turning ON", true),
+        ("startHost", "Start " + m.Host.Name + " when turning ON", true),
+        ("autoOff", "Turn OFF automatically when " + m.Host.Name + " closes", true),
+    }.Where(s => s.Item2 != null).ToArray();
 
-    public Settings(Mashup m)
+    readonly Dictionary<string, bool> v = new Dictionary<string, bool>();
+    readonly string file; // null: in memory only
+
+    Settings(string file) { this.file = file; }
+
+    public Settings(Manifest m) : this(Path.Combine(Paths.Data, m.Id, "settings.ini"))
     {
-        file = Path.Combine(m.Dir, "settings.ini");
         foreach (var s in All(m)) v[s.key] = s.def;
         try
         {
@@ -37,6 +30,24 @@ class Settings
         }
         catch (IOException) { } // no file yet: defaults
     }
-    public bool this[string k] { get => v[k]; set { v[k] = value; Save(); } }
-    void Save() => File.WriteAllLines(file, v.Select(kv => kv.Key + "=" + (kv.Value ? "1" : "0")));
+
+    /// <summary>Settings that are never saved (headless runs, tests).</summary>
+    public static Settings Defaults(bool startGuest = true, bool startHost = true, bool autoOff = true)
+    {
+        var s = new Settings((string)null);
+        s.v["startGuest"] = startGuest; s.v["startHost"] = startHost; s.v["autoOff"] = autoOff;
+        return s;
+    }
+
+    public bool this[string k]
+    {
+        get => v.TryGetValue(k, out bool b) && b;
+        set
+        {
+            v[k] = value;
+            if (file == null) return;
+            Directory.CreateDirectory(Path.GetDirectoryName(file));
+            File.WriteAllLines(file, v.Select(kv => kv.Key + "=" + (kv.Value ? "1" : "0")));
+        }
+    }
 }

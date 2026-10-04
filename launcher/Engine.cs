@@ -1,62 +1,181 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
-using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 
 enum FileState { Off, On, Partial }
 
+/// <summary>What turning a mashup ON would do: shown on the trust screen before anything happens.</summary>
+class InstallPlan
+{
+    public string GameDir;
+    public List<string> Files = new List<string>();                              // game-folder paths it adds or replaces
+    public List<(string what, string host)> Downloads = new List<(string, string)>();
+    public bool MinecraftProfile;
+    public bool AntiCheatFound;
+    public string AntiCheatNote, OfflineArgs;
+    public bool Reviewed;                                                         // installed from the reviewed public index
+}
+
+/// <summary>Turns one mashup ON (install steps, then the guest and host games) and OFF (close, remove exactly what ON added).</summary>
 class Engine
 {
-    public readonly Mashup M;
+    public readonly Manifest M;
     public Action<string> Log = s => { };
-    public Engine(Mashup m) { M = m; }
+    public Engine(Manifest m) { M = m; }
 
-    string GuestPid => Path.Combine(Paths.Logs, M.Id + "-guest.pid");
+    static readonly string[] AntiCheatMarks = { "BattlEye", "EasyAntiCheat", "EasyAntiCheat_EOS", "start_protected_game.exe", "BEService.exe", "BEService_x64.exe" };
+
+    public static bool AntiCheatPresent(string gameDir) =>
+        gameDir != null && AntiCheatMarks.Any(n => File.Exists(Path.Combine(gameDir, n)) || Directory.Exists(Path.Combine(gameDir, n)));
+
+    public string GameDir => GameLocator.Resolve(M.Id, M.Host.Exe, M.Host.SteamAppId);
+
+    public FileState State()
+    {
+        string game = GameDir;
+        if (game == null) return InstallRecord.Exists(M.Id) ? FileState.Partial : FileState.Off;
+        return Installer.State(M.Id, game);
+    }
+
+    public bool Reviewed
+    {
+        get
+        {
+            string f = Path.Combine(M.Dir, "source.json");
+            return File.Exists(f) && Json.Bool(Json.Parse(File.ReadAllText(f)), "reviewed");
+        }
+    }
+
+    public bool HostRunning() => M.Host.Process.Length > 0 && Process.GetProcessesByName(M.Host.Process).Length > 0;
+    bool HostOrStubRunning() => HostRunning() || (M.Host.Stub.Length > 0 && Process.GetProcessesByName(M.Host.Stub).Length > 0);
+    public bool LinkUp() => M.Guest != null && M.Guest.LinkPort > 0 &&
+        IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(e => e.Port == M.Guest.LinkPort);
 
     void L(string s)
     {
-        Directory.CreateDirectory(Paths.Logs);
-        File.AppendAllText(Paths.Logs + @"\launcher.log", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss ") + "[" + M.Id + "] " + s + "\r\n");
+        try
+        {
+            Directory.CreateDirectory(Paths.Logs);
+            File.AppendAllText(Path.Combine(Paths.Logs, "launcher.log"), DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss ") + "[" + M.Id + "] " + s + "\r\n");
+        }
+        catch (IOException) { }
         Log(s);
     }
 
-    public FileState Files()
+    string RequireGame()
     {
-        int n = M.Files.Count(f => File.Exists(Path.Combine(M.GameDir, f)) || Directory.Exists(Path.Combine(M.GameDir, f)));
-        return n == 0 ? FileState.Off : n == M.Files.Length ? FileState.On : FileState.Partial;
+        return GameDir ?? throw new InvalidOperationException("Choose " + M.Host.Name + "'s folder first (the one with " + M.Host.Exe + " in it).");
     }
-    public bool HostRunning() => M.HostProcess.Length > 0 && Process.GetProcessesByName(M.HostProcess).Length > 0;
-    bool HostOrStubRunning() => HostRunning() || (M.HostStub.Length > 0 && Process.GetProcessesByName(M.HostStub).Length > 0);
-    public bool LinkUp() => M.GuestPort > 0 && IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(e => e.Port == M.GuestPort);
 
-    Process OurGuest()
+    /// <summary>Every file each copy step would add, as game-relative paths.</summary>
+    IEnumerable<(string rel, string source)> CopyFiles(Step s)
     {
+        string src = Installer.Inside(M.Dir, s.From);
+        if (File.Exists(src))
+            yield return (Path.GetFileName(src), src);
+        else if (Directory.Exists(src))
+            foreach (string f in Directory.GetFiles(src, "*", SearchOption.AllDirectories).OrderBy(f => f))
+                yield return (f.Substring(src.TrimEnd('\\').Length + 1), f);
+        else
+            throw new ManifestException("Copy source '" + s.From + "' is not in the mashup");
+    }
+
+    public InstallPlan Plan()
+    {
+        string game = GameDir;
+        var p = new InstallPlan { GameDir = game, AntiCheatFound = AntiCheatPresent(game), AntiCheatNote = M.Host.AntiCheatNote, OfflineArgs = M.Host.OfflineArgs, Reviewed = Reviewed };
+        foreach (var s in M.Install)
+        {
+            if (s.Kind == "copy")
+                p.Files.AddRange(CopyFiles(s).Select(f => f.rel));
+            else if (s.Kind == "download")
+            {
+                p.Downloads.Add((s.Page ? "latest file from " + s.Url : s.Url, new Uri(s.Url).Host));
+                if (s.Extract != null) p.Files.AddRange(s.Extract.Values);
+                else if (!s.Page) p.Files.Add(Path.GetFileName(new Uri(s.Url).LocalPath));
+            }
+            else if (s.Kind == "minecraft-profile")
+            {
+                p.MinecraftProfile = true;
+                p.Downloads.Add(("Fabric loader " + M.Guest?.FabricLoader, "meta.fabricmc.net"));
+                p.Downloads.Add(("Fabric API " + M.Guest?.FabricApi, "modrinth.com"));
+            }
+        }
+        return p;
+    }
+
+    public void TurnOn(Settings settings, IEnumerable<Engine> others, Func<string, byte[]> get = null)
+    {
+        string game = RequireGame();
+        if (AntiCheatPresent(game) && string.IsNullOrEmpty(M.Host.OfflineArgs))
+            throw new InvalidOperationException(M.Host.Name + " uses anti-cheat, and " + M.Name + " doesn't say how it keeps the game offline. Refusing to install.");
+        var busy = others.FirstOrDefault(o => o != this && o.State() != FileState.Off && string.Equals(o.GameDir, game, StringComparison.OrdinalIgnoreCase));
+        if (busy != null)
+            throw new InvalidOperationException(busy.M.Name + " is ON in the same game folder. Turn it OFF first.");
+        if (HostRunning())
+            throw new InvalidOperationException(M.Host.Name + " is running. Close it, then turn ON.");
+
         try
         {
-            var p = Process.GetProcessById(int.Parse(File.ReadAllText(GuestPid).Trim()));
-            return p.ProcessName.Equals("cmd", StringComparison.OrdinalIgnoreCase) ? p : null; // pid reuse guard
+            foreach (var s in M.Install)
+                RunStep(s, game, get);
+            Installer.Finish(M.Id);
         }
-        catch (Exception) { return null; }
-    }
-    public bool GuestRunning() => OurGuest() != null || LinkUp();
-
-    void Script(string arg)
-    {
-        var psi = new ProcessStartInfo(Paths.Bash, "\"" + M.Script + "\" " + arg)
-        { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-        using (var p = Process.Start(psi))
+        catch (Exception)
         {
-            string o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
-            p.WaitForExit();
-            foreach (var line in o.Split('\n').Select(x => x.Trim()).Where(x => x.Length > 0)) L(line);
+            L("Install failed, undoing what was added...");
+            Installer.RemoveAll(M.Id, game);
+            if (MinecraftProfile.Installed(M)) MinecraftProfile.Remove(M);
+            throw;
+        }
+        L("Installed.");
+
+        if (settings["startGuest"] && M.Guest?.Kind == "minecraft-fabric")
+        {
+            L("Opening the Minecraft Launcher: pick the \"" + M.Name + "\" profile and press Play.");
+            MinecraftProfile.OpenLauncher();
+        }
+        if (settings["startHost"] && M.Host.Launch.Length > 0)
+            StartHost();
+        L("ON.");
+    }
+
+    void RunStep(Step s, string game, Func<string, byte[]> get)
+    {
+        switch (s.Kind)
+        {
+            case "copy":
+                foreach (var (rel, source) in CopyFiles(s))
+                {
+                    L("Adding " + rel);
+                    Installer.AddFile(M.Id, game, rel, tmp => File.Copy(source, tmp, true));
+                }
+                break;
+            case "download":
+            {
+                string url = s.Page ? Downloads.FindLinkOnPage(s.Url, s.Pattern) : s.Url;
+                L("Downloading " + url);
+                byte[] data = get != null ? get(url) : Downloads.Verified(url, s.Sha256, s.Page ? s.Url : null);
+                if (get != null && !string.IsNullOrEmpty(s.Sha256) && !Downloads.Sha256(data).Equals(s.Sha256, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Download does not match its pinned SHA-256");
+                var files = s.Extract != null ? Downloads.Extract(data, s.Extract)
+                    : new Dictionary<string, byte[]> { [Manifest.SafeRelative(Path.GetFileName(new Uri(url).LocalPath))] = data };
+                foreach (var f in files)
+                {
+                    L("Adding " + f.Key);
+                    Installer.AddFile(M.Id, game, f.Key, tmp => File.WriteAllBytes(tmp, f.Value));
+                }
+                break;
+            }
+            case "minecraft-profile":
+                L("Setting up the Minecraft profile...");
+                byte[] jar = s.Jar != null ? File.ReadAllBytes(Installer.Inside(M.Dir, s.Jar)) : new byte[0];
+                MinecraftProfile.Install(M, jar, null, get);
+                break;
         }
     }
 
@@ -64,41 +183,10 @@ class Engine
     {
         for (int i = 0; i < seconds * 2; ++i)
         {
-            if (condition())
-                return true;
+            if (condition()) return true;
             Thread.Sleep(500);
         }
         return condition();
-    }
-
-    public void TurnOn(Settings s, IEnumerable<Engine> others)
-    {
-        var on = others.FirstOrDefault(o => o != this && o.M.GameDir.Equals(M.GameDir, StringComparison.OrdinalIgnoreCase) && o.Files() != FileState.Off);
-        if (on != null)
-            throw new InvalidOperationException(on.M.Name + " is ON in the same game. Turn it OFF first.");
-        if (HostRunning())
-            throw new InvalidOperationException(M.HostName + " is already running. Close it, then turn ON.");
-        L("Installing mod files into " + M.HostName + "...");
-        Script("on");
-        if (Files() != FileState.On) throw new InvalidOperationException("Mod files did not install. See logs\\launcher.log.");
-
-        if (s["startGuest"] && M.GuestCommand.Length > 0)
-        {
-            if (GuestRunning()) L(M.GuestName + " is already running.");
-            else
-            {
-                L("Starting " + M.GuestName + " (its first start can take a few minutes)...");
-                // .\ : cmd may not run programs from the current folder (NoDefaultCurrentDirectoryInExePath)
-                var psi = new ProcessStartInfo("cmd.exe", "/c .\\" + M.GuestCommand + " > \"" + Path.Combine(Paths.Logs, M.Id + "-guest.log") + "\" 2>&1")
-                { WorkingDirectory = M.GuestDir, UseShellExecute = false, CreateNoWindow = true };
-                foreach (var e in M.GuestEnv) psi.EnvironmentVariables[e.Key] = e.Value;
-                Directory.CreateDirectory(Paths.Logs);
-                File.WriteAllText(GuestPid, Process.Start(psi).Id.ToString());
-            }
-        }
-        if (s["startHost"] && M.HostLaunch.Length > 0)
-            StartHost();
-        L("ON.");
     }
 
     // while the last host (or its launcher stub) is still exiting, Steam thinks the game runs and ignores a launch
@@ -106,47 +194,44 @@ class Engine
     {
         if (HostOrStubRunning())
         {
-            L("Waiting for the last " + M.HostName + " to finish exiting...");
+            L("Waiting for the last " + M.Host.Name + " to finish exiting...");
             if (!WaitFor(() => !HostOrStubRunning(), 60))
-                throw new InvalidOperationException(M.HostName + " is still exiting. Wait a moment, then turn ON again.");
+                throw new InvalidOperationException(M.Host.Name + " is still exiting. Wait a moment, then turn ON again.");
             Thread.Sleep(5000); // Steam drops its "running" state a few seconds after the exit
         }
         for (int attempt = 1; attempt <= 2; ++attempt)
         {
-            L(attempt == 1 ? "Starting " + M.HostName + ". " + M.Hint : M.HostName + " didn't start, asking again...");
-            Process.Start(new ProcessStartInfo(M.HostLaunch) { UseShellExecute = true });
-            if (WaitFor(HostOrStubRunning, 90))
-                return;
+            L(attempt == 1 ? "Starting " + M.Host.Name + ". " + M.Hint : M.Host.Name + " didn't start, asking again...");
+            Process.Start(new ProcessStartInfo(M.Host.Launch) { UseShellExecute = true });
+            if (WaitFor(HostOrStubRunning, 90)) return;
         }
-        throw new InvalidOperationException(M.HostName + " didn't start. Start it yourself; the mod files are installed.");
+        throw new InvalidOperationException(M.Host.Name + " didn't start. Start it yourself; the mashup is installed.");
     }
 
-    public void TurnOff(Settings s)
+    public void TurnOff(Settings settings)
     {
-        var host = M.HostProcess.Length > 0 ? Process.GetProcessesByName(M.HostProcess) : new Process[0];
+        var host = M.Host.Process.Length > 0 ? Process.GetProcessesByName(M.Host.Process) : new Process[0];
         if (host.Length > 0)
         {
-            L("Closing " + M.HostName + "...");
+            L("Closing " + M.Host.Name + "...");
             foreach (var p in host) p.CloseMainWindow();
             foreach (var p in host)
-                if (!p.WaitForExit(20000)) { L(M.HostName + " did not close in 20 s, ending it."); p.Kill(); p.WaitForExit(10000); }
+                if (!p.WaitForExit(20000)) { L(M.Host.Name + " did not close in 20 s, ending it."); p.Kill(); p.WaitForExit(10000); }
+            Thread.Sleep(1500); // let Windows release the game's file locks
         }
-        if (s["closeGuest"])
+        string game = GameDir;
+        if (game != null)
         {
-            var guest = OurGuest();
-            if (guest != null)
-            {
-                L("Closing " + M.GuestName + "...");
-                // the guest runs under the cmd wrapper we started: end exactly that tree, by PID
-                Process.Start(new ProcessStartInfo("taskkill", "/PID " + guest.Id + " /T /F") { UseShellExecute = false, CreateNoWindow = true }).WaitForExit();
-                File.Delete(GuestPid);
-            }
-            else if (LinkUp()) L(M.GuestName + " was started outside this app, leaving it open.");
+            L("Removing the mashup's files from " + M.Host.Name + "...");
+            Installer.RemoveAll(M.Id, game);
         }
-        Thread.Sleep(1500); // let Windows release the host's file locks
-        L("Removing mod files from " + M.HostName + "...");
-        Script("off");
-        if (Files() != FileState.Off) throw new InvalidOperationException("Some mod files are still there. Close " + M.HostName + " and press OFF again.");
-        L("OFF. " + M.HostName + " is stock.");
+        if (MinecraftProfile.Installed(M))
+        {
+            L("Removing the Minecraft profile...");
+            MinecraftProfile.Remove(M);
+        }
+        if (State() != FileState.Off)
+            throw new InvalidOperationException("Some files are still there. Close " + M.Host.Name + " and press OFF again.");
+        L("OFF. " + M.Host.Name + " is stock.");
     }
 }

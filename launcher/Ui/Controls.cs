@@ -51,9 +51,11 @@ class PowerButton : Control
 /// <summary>A library tile: the mashup's cover (or its two-colour gradient), name, tagline and ON/OFF state.</summary>
 class Card : Control
 {
-    public readonly Mashup M;
+    public readonly Manifest M;
+    public readonly Image Cover; // cover.png in the mashup folder, or null (a gradient with initials)
+    public string Badge = ""; // e.g. "UPDATE", shown top-right
     public bool Selected, On;
-    public Card(Mashup m) { M = m; SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true); Size = new Size(268, 96); Cursor = Cursors.Hand; BackColor = Ui.Bg; }
+    public Card(Manifest m) { M = m; Cover = Ui.LoadCover(m); SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true); Size = new Size(268, 96); Cursor = Cursors.Hand; BackColor = Ui.Bg; }
     protected override void OnMouseEnter(EventArgs e) { hover = true; Invalidate(); }
     protected override void OnMouseLeave(EventArgs e) { hover = false; Invalidate(); }
     bool hover;
@@ -68,12 +70,12 @@ class Card : Control
             using (var artPath = Ui.Round(art, 7))
             {
                 g.SetClip(artPath);
-                if (M.Cover != null) g.DrawImage(M.Cover, art);
+                if (Cover != null) g.DrawImage(Cover, art);
                 else
                     using (var grad = new LinearGradientBrush(art, M.Accent2, M.Accent, 45f)) g.FillRectangle(grad, art);
                 g.ResetClip();
             }
-            if (M.Cover == null)
+            if (Cover == null)
                 TextRenderer.DrawText(g, Ui.Initials(M.Name), Ui.Font(18, FontStyle.Bold), art, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             if (Selected)
                 using (var pen = new Pen(M.Accent, 2)) g.DrawPath(pen, path);
