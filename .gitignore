@@ -1,1 +1,7 @@
 .superpowers/
+MashupLauncher.exe
+*.pdb
+data/
+logs/
+mashups/*/settings.ini
+graphify-out/
