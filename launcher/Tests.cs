@@ -13,6 +13,7 @@ static partial class Tests
         Console.WriteLine("Mashup Launcher self-tests");
         Check(Directory.Exists(Paths.Root), "root exists");
         Check(Paths.Mashups == Path.Combine(Paths.Root, "mashups") && Paths.Data == Path.Combine(Paths.Root, "data") && Paths.Backups == Path.Combine(Paths.Data, "backups"), "data folders are root/mashups, root/data, data/backups");
+        ManifestTests();
         foreach (var t in temps) try { Directory.Delete(t, true); } catch (Exception) { }
         Console.WriteLine(passed + "/" + (passed + failed) + " passed");
         return failed == 0 ? 0 : 1;
