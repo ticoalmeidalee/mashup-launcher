@@ -1,5 +1,5 @@
 .superpowers/
-MashupLauncher.exe
+*MashupLauncher*.exe
 *.pdb
 data/
 logs/
