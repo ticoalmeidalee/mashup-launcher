@@ -17,6 +17,7 @@ static partial class Tests
         InstallerTests();
         DownloadTests();
         GameLocatorTests();
+        MinecraftTests();
         foreach (var t in temps) try { Directory.Delete(t, true); } catch (Exception) { }
         Console.WriteLine(passed + "/" + (passed + failed) + " passed");
         return failed == 0 ? 0 : 1;

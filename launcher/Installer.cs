@@ -37,13 +37,10 @@ class InstallRecord
     public void Save()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(file));
-        string tmp = file + ".tmp";
-        File.WriteAllText(tmp, Json.Write(new Dictionary<string, object>
+        SafeFile.WriteAllText(file, Json.Write(new Dictionary<string, object>
         {
             ["complete"] = Complete, ["added"] = Added, ["dirs"] = Dirs, ["backedUp"] = BackedUp,
         }));
-        if (File.Exists(file)) File.Replace(tmp, file, null);
-        else File.Move(tmp, file);
     }
 
     public void Delete() { if (File.Exists(file)) File.Delete(file); }
