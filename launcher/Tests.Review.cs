@@ -144,6 +144,23 @@ static partial class Tests
         }));
     }
 
+    static void RetryTests()
+    {
+        Case("retry_rides_out_a_brief_lock", () =>
+        {
+            int calls = 0;
+            SafeFile.Retry(() => { if (++calls < 3) throw new IOException("in use by the antivirus"); });
+            Check(calls == 3, "retry_rides_out_a_brief_lock");
+        });
+
+        Case("retry_gives_up_on_a_lasting_lock", () =>
+        {
+            bool threw = false;
+            try { SafeFile.Retry(() => { throw new UnauthorizedAccessException("denied"); }); } catch (UnauthorizedAccessException) { threw = true; }
+            Check(threw, "retry_gives_up_on_a_lasting_lock");
+        });
+    }
+
     /// <summary>Writes the choice file directly, the way a folder change outside the launcher's checks would.</summary>
     static void GameLocatorForceChoose(string id, string dir) =>
         File.WriteAllText(Path.Combine(Paths.Data, id, "game-folder.txt"), dir);

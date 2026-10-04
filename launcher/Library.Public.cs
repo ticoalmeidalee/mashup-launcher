@@ -89,18 +89,18 @@ static partial class Library
                 bool oldReviewed = old != null && new Engine(old).Reviewed;
                 if (!replace && !(reviewed && oldReviewed))
                     throw new ReplaceNeedsConfirmation((old?.Name ?? m.Id) + (oldReviewed ? " (a reviewed public mashup)" : " (your own or a local copy)"));
-                Directory.Delete(dest, true);
+                SafeFile.Retry(() => Directory.Delete(dest, true));
             }
             File.WriteAllText(Path.Combine(root, "source.json"), Json.Write(new Dictionary<string, object>
             {
                 ["reviewed"] = reviewed, ["sha256"] = Downloads.Sha256(zip), ["from"] = from, ["installed"] = DateTime.UtcNow.ToString("u"),
             }));
-            Directory.Move(root, dest);
+            SafeFile.Retry(() => Directory.Move(root, dest));
             return Manifest.Load(dest);
         }
         finally
         {
-            if (Directory.Exists(incoming)) Directory.Delete(incoming, true);
+            if (Directory.Exists(incoming)) SafeFile.Retry(() => Directory.Delete(incoming, true));
             string parent = Path.Combine(Paths.Mashups, ".incoming");
             if (Directory.Exists(parent) && !Directory.EnumerateFileSystemEntries(parent).Any()) Directory.Delete(parent);
         }

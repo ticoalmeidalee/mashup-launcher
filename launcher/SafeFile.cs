@@ -60,6 +60,20 @@ static class SafeFile
         return null;
     }
 
+    /// <summary>
+    /// Runs a file-system action, retrying for about two seconds while it fails with a lock: antivirus scans freshly
+    /// written or extracted files (a mashup's .asi or .jar) and holds them meanwhile. A lasting lock is rethrown.
+    /// </summary>
+    public static void Retry(Action action)
+    {
+        for (int attempt = 0; ; ++attempt)
+        {
+            try { action(); return; }
+            catch (IOException) when (attempt < 40) { Thread.Sleep(50); }
+            catch (UnauthorizedAccessException) when (attempt < 40) { Thread.Sleep(50); }
+        }
+    }
+
     public static void Delete(string path)
     {
         foreach (string f in new[] { path, path + ".bak", path + ".mashup-tmp" })
