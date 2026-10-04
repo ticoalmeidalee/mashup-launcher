@@ -8,7 +8,8 @@ exactly as they were.
 
 - **A library.** Browse reviewed public mashups, add a `.zip` someone shared, or create your own.
 - **Your games, found for you.** It finds Steam games by itself; otherwise you point it at the game's folder once.
-- **One button.** ON installs the mashup and starts both games. OFF closes them and removes every file it added.
+- **One button.** ON installs the mashup and starts the game (a Minecraft guest opens in your own Minecraft
+  Launcher). OFF closes the game and removes every file the mashup added.
 - **Nothing left behind.** Every file is recorded before it is written; anything a mashup replaces is backed up and put
   back. If an install fails halfway, it undoes itself.
 - **You see everything first.** Before anything is installed, a trust screen lists every file, every download and where
@@ -44,10 +45,14 @@ Mashups are code that runs on your PC, so the launcher is strict about what it l
 
 <p align="center"><img src="docs/screenshot-trust.png" alt="The trust screen: files, downloads and the reviewed/unreviewed badge" width="420"></p>
 
-- Files only ever go into the game folder you picked; a mashup can't write anywhere else (paths are checked, and zips
-  that try to escape their folder are rejected).
-- Public mashups are reviewed before they are listed, and their downloads are checked against a SHA-256 in the index.
-  Mashups you add yourself are marked **not reviewed**.
+- Files only go into the game folder you picked and the launcher's own folder; a mashup can't write anywhere else
+  (paths are checked, and zips that try to escape their folder are rejected). The one exception is declared on the trust
+  screen: a Minecraft guest adds a profile to your Minecraft Launcher (`%APPDATA%\.minecraft`), which OFF removes.
+- A mashup can only start its own game: the game's Steam id, or an .exe inside the game folder.
+- Public mashups are reviewed before they are listed, and each package is checked against the SHA-256 in the index.
+  The trust screen shows which downloads inside a mashup are pinned by SHA-256. Mashups you add yourself are marked
+  **not reviewed**, and installing over a mashup from another source asks first.
+- Downloads are https only.
 - Games with anti-cheat are refused unless the mashup says how it keeps the game offline, and the trust screen shows it.
   Mashups are for single-player and offline play. Never take a modded game online.
 - Nothing from a game is redistributed, and third-party tools whose licence forbids redistribution are downloaded from

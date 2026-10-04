@@ -35,7 +35,9 @@ street and go behind lampposts. What happens in one game happens in the other.
 - **Minecraft Java Edition** with the official Minecraft Launcher (your own account).
 - Mashup Launcher installs everything else: ScriptHookV + its ASI loader (dev-c.com), ReShade 6.8.0 with add-on support
   (reshade.me), ReShade's shader headers (crosire/reshade-shaders), Fabric Loader + Fabric API, and this mod. Turning it
-  OFF removes all of it, and the Minecraft profile.
+  OFF removes everything it added to GTA's folder and the Minecraft profile. The profile's own folder (your Minecraft
+  worlds for this mashup, Fabric API and the mod) stays in the launcher's `data\gta-minecraft\minecraft` so your builds
+  are there next time; delete it to remove them.
 
 ScriptHookV only runs on the GTA builds it supports: after a GTA update, wait for a new ScriptHookV.
 

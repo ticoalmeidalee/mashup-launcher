@@ -18,7 +18,8 @@ A mashup is only accepted (in `mashups/` or in `library/index.json`) if it:
 ## Listing a mashup
 
 See [library/README.md](library/README.md): publish the zip (a GitHub release is best), then open a pull request adding
-one entry with its url and SHA-256. Reviewers read the manifest and every file in the package, then test it.
+one entry with its url and SHA-256. The mod's source must be public and its compiled files reproducible from it:
+reviewers read the manifest and the source, rebuild, compare, then test it.
 
 ## Code
 

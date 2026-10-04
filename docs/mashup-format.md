@@ -59,7 +59,7 @@ The launcher writes `source.json` (where the package came from, reviewed or not)
 | `host.exe` | **required**: how the launcher recognises the game folder (it refuses folders without it) |
 | `host.steamAppId` | finds the game in the user's Steam libraries automatically |
 | `host.process`, `host.stub` | the game's process (and its launcher stub's) names, without `.exe`: OFF closes the game, auto-OFF watches it |
-| `host.launch` | how ON starts the game (a `steam://` URL, or a path) |
+| `host.launch` | how ON starts the game: `steam://rungameid/<host.steamAppId>`, or an `.exe` inside the game folder (nothing else is accepted) |
 | `host.antiCheat.offlineArgs` | **required if the game folder has anti-cheat** (BattlEye, EasyAntiCheat): how the mashup keeps it offline (shown on the trust screen); without it, install is refused |
 | `guest` | the second game. `kind: "minecraft-fabric"` adds a Fabric profile to the player's own Minecraft Launcher; `linkPort` is the local port the guest listens on (status shows "link ready") |
 | `runtimeFiles` | files the mod creates in the game folder while running (logs): OFF deletes them unless they existed before ON |

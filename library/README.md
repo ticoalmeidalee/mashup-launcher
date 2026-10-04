@@ -38,5 +38,6 @@ Read [CONTRIBUTING.md](../CONTRIBUTING.md) first. In short, a mashup is merged o
 - doesn't cheat online, bypass anti-cheat, DRM or ownership checks;
 - does what its description says, and turns fully OFF.
 
-Reviewers read the manifest and every file in the package. A new version is a new pull request with the new url and
+Your mod's source must be public with a build that reproduces the package's compiled files (like this repo's CI).
+Reviewers read the manifest and the source, rebuild, and compare. A new version is a new pull request with the new url and
 SHA-256.
