@@ -11,6 +11,10 @@ import java.net.InetSocketAddress;
 import java.util.Locale;
 import net.minecraft.client.Minecraft;
 import org.java_websocket.WebSocket;
+import org.java_websocket.drafts.Draft;
+import org.java_websocket.exceptions.InvalidDataException;
+import org.java_websocket.framing.CloseFrame;
+import org.java_websocket.handshake.ServerHandshakeBuilder;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
@@ -43,6 +47,21 @@ public final class HostLink extends WebSocketServer {
 		instance = new HostLink(port);
 		instance.start();
 		Passthrough.events = message -> instance.broadcast(message);
+	}
+
+	/**
+	 * Web pages can open ws://127.0.0.1 too, and this link runs commands: a browser always sends an Origin header
+	 * (the GTA plugin and the host tools never do), so any handshake carrying one is refused.
+	 */
+	@Override
+	public ServerHandshakeBuilder onWebsocketHandshakeReceivedAsServer(final WebSocket conn, final Draft draft, final ClientHandshake request)
+		throws InvalidDataException {
+		if (request.hasFieldValue("Origin")) {
+			Passthrough.LOG.warn("refused a web page's connection (Origin: {})", request.getFieldValue("Origin"));
+			throw new InvalidDataException(CloseFrame.POLICY_VALIDATION, "browser connections are not allowed");
+		}
+
+		return super.onWebsocketHandshakeReceivedAsServer(conn, draft, request);
 	}
 
 	@Override

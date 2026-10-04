@@ -43,6 +43,7 @@
     {
       "kind": "download",
       "url": "https://reshade.me/downloads/ReShade_Setup_6.8.0_Addon.exe",
+      "sha256": "afe4c8f13048306307983b8b3d41d5bf00a86820440b0e57dea10950e1176445",
       "extract": { "ReShade64.dll": "ReShade64.asi" },
       "to": "game"
     },
