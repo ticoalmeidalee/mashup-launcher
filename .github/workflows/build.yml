@@ -30,6 +30,12 @@ jobs:
         shell: cmd
         run: test.bat
 
+      - name: Cache the plugin's build dependencies (dev-c.com is sometimes unreachable)
+        uses: actions/cache@v4
+        with:
+          path: mashups/gta-minecraft/gta/third_party
+          key: gta-third-party-v1
+
       - name: GTA plugin (ScriptHookV + ReShade add-on)
         shell: pwsh
         run: |
